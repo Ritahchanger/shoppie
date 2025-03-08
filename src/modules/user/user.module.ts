@@ -7,6 +7,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { User,UserSchema } from './schemas/user.schema';
 
 import { ConfigModule } from '@nestjs/config';
+import { UclearController } from './uclear/uclear.controller';
 
 
 @Module({
@@ -14,7 +15,7 @@ import { ConfigModule } from '@nestjs/config';
     MongooseModule.forFeature([{name:User.name, schema:UserSchema}])
     ,ConfigModule
   ],
-  controllers: [UserController],
+  controllers: [UserController, UclearController],
   providers: [UserService]
 })
 export class UserModule {}

@@ -1,77 +1,100 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+
 import { InjectModel } from '@nestjs/mongoose';
 
 import { User } from './schemas/user.schema';
 
 import { Model } from 'mongoose';
 
-import { ConfigService } from "@nestjs/config"
+import { ConfigService } from '@nestjs/config';
 
-import * as bcrypt from "bcryptjs"
+import * as bcrypt from 'bcryptjs';
 
-import * as jwt from "jsonwebtoken"
+import * as jwt from 'jsonwebtoken';
 
 @Injectable()
 export class UserService {
+  constructor(
+    @InjectModel(User.name) private userModel: Model<User>,
 
-  constructor(@InjectModel(User.name) private userModel: Model<User>,
+    private configService: ConfigService,
+  ) {}
 
-  private configService:ConfigService
+  async createUser(
+    firstName: string,
+    lastName: string,
+    email: string,
+    idNo: number,
+    password: string,
+  ): Promise<User> {
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-) {}
-
-
-  async createUser(firstName:string,lastName:string,email:string,idNo:number,password:string):Promise<User>{
-
-    const hashedPassword = await bcrypt.hash(password,10);
-
-    const newUser = new this.userModel({firstName,lastName,idNo,email,password:hashedPassword});
-
+    const newUser = new this.userModel({
+      firstName,
+      lastName,
+      idNo,
+      email,
+      password: hashedPassword,
+    });
 
     return newUser.save();
   }
 
-  async findByEmail(email:string):Promise<User>{
-
-    return this.userModel.findOne({email}).exec();
-
+  async findByEmail(email: string): Promise<User> {
+    return this.userModel.findOne({ email }).exec();
   }
 
-  async login(email:string, password:string) :Promise<{token:string;user:any}>{
-
+  async login(
+    email: string,
+    password: string,
+  ): Promise<{ token: string; user: any }> {
     const user = await this.findByEmail(email);
 
-    if(!user) throw new BadRequestException("Invalid email or password");
+    if (!user) throw new BadRequestException('Invalid email or password');
 
+    const isPasswordValid = await bcrypt.compare(password, user.password);
 
-    const isPasswordValid = await bcrypt.compare(password,user.password);
-
-    if(!isPasswordValid) throw new BadRequestException("Invalid email or password");
+    if (!isPasswordValid)
+      throw new BadRequestException('Invalid email or password');
 
     const jwtSecret = this.configService.get<string>('JWT_SECRET');
 
-    if(!jwtSecret){
-
-      throw new Error("JWT SECRET is not defined in .env file")
-
+    if (!jwtSecret) {
+      throw new Error('JWT SECRET is not defined in .env file');
     }
 
-    const token = jwt.sign({userId:user.id,email:user.email},jwtSecret, {expiresIn:'1h'});
-
+    const token = jwt.sign({ userId: user.id, email: user.email }, jwtSecret, {
+      expiresIn: '1h',
+    });
 
     return {
+      token,
 
-        token,
-
-        user:{_id:user._id, firstName:user.firstName, lastName:user.lastName,email:user.email}
-
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+      },
     };
-
   }
 
-  async getUsers() {
-
-    
+  async getUsers(): Promise<Partial<User>[]> {
+    const users = await this.userModel.find().select('-password').exec();
+    return users;
   }
 
+  async getUser(id: string): Promise<Partial<User>> {
+    const user = await this.userModel.findById(id).select('-password').exec();
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found `);
+    }
+
+    return user;
+  }
 }

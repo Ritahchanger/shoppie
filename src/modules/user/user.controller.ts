@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller,Get,HttpStatus,Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller,Get,HttpStatus,Param,Post } from '@nestjs/common';
 import { UserService } from './user.service';
 
 @Controller('auth')
@@ -39,15 +39,30 @@ export class UserController {
         return { message:'Login successfull', token,user }
 
     }
-    @Get()
+    @Get('users')
 
     async getUsers(){
 
+    
+        const users = await this.userService.getUsers();
 
-        
+        if(users.length === 0 ){
+
+            return { statusCode:404, message:'No users in the database'}
+
+        }
+
+        return { statusCode:200, success:true, data:users}
 
     }
 
+    @Get('user/:id')
 
+    async getUser(@Param('id') id:string){
+
+        const user = await this.userService.getUser(id);
+
+        return { statusCode: HttpStatus.OK, success:true, user };
+    }
 
 }
